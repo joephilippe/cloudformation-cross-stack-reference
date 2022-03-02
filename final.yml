@@ -1,0 +1,105 @@
+Parameters:
+  VpcId:             # le nom can be anything dc "s" a "VpcId" ou pas peu importe, ceki matter c le TYPE                                    
+    Type: 'AWS::EC2::VPC::Id'
+    Description: VpcId of your existing Virtual Private Cloud (VPC)
+  SubnetId:                                         
+    Description: WebServer EC2 instance subnet
+    Type: 'List<AWS::EC2::Subnet::Id>'    # PAS de era car moi je ne veux pas de STRING but a LIST    
+  AvailabilityZoneJP:
+    Description: Availability zone where the EC2 instance will be provisioned
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: us-west-2c
+  
+  InstanceType: 
+    Description: As a coder or dev i would like users to input a string at lunch
+    Type: String  
+    Default: t2.micro 
+    AllowedValues: #possible values
+    - t1.micro
+    - t2.nano
+    - t2.micro
+    - t2.small
+    ConstraintDescription: must be a valid EC2 instance type.
+
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instances. Linked to AWS Parameter
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: must be the name of an existing EC2 KeyPair. 
+
+  SSHLocation:   # te permet de enter ton IP address ou any ip at ur will
+      Description: The IP address range that can be used to SSH to the EC2 instances
+      Type: String
+      MinLength: '9'
+      MaxLength: '18'
+      Default: 98.225.24.98/32
+      AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
+      ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.    
+  
+
+Resources:
+  MySecureInstance:
+    # http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-instance.html
+    Type: AWS::EC2::Instance
+    Properties:
+      AvailabilityZone: !Ref AvailabilityZoneJP
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", ImageId]  
+      InstanceType: !Ref  InstanceType
+
+      Tags:                                                         
+      - Key: "Name"
+        Value: "jp-ec2-launched-by-cloudformation"
+      SubnetId: !ImportValue BaseTEMP-SubnetID        ## typo was here 
+      SecurityGroupIds:
+        - !ImportValue BaseTEMP-SecurityGroupID        
+      KeyName: !Ref KeyName                              
+ 
+      UserData: 
+        Fn::Base64: 
+          !Sub |
+            #!/bin/bash
+            yum update -y
+            yum install -y httpd
+            systemctl start httpd
+            systemctl enable httpd
+            echo " Hello World My Name is Jean Philippe, please stay tuned ">/var/www/html/index.html
+  #   SecurityGroups:
+      # we reference the output here, using the Fn::ImportValue function
+  #     - !ImportValue BaseTEMP-SecurityGroupID
+
+  MyEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref MySecureInstance 
+
+  
+        
+
+Mappings: 
+  RegionMap: 
+    # us-east-1: 
+    #  "ImageId": "ami-0ff8a91507f77f867"
+    # us-east-2:     
+    #  "ImageId": "ami-0ff8a91507f77f867"  
+    us-west-1: 
+      "ImageId": "ami-0573b70afecda915d"
+    us-west-2:     
+      "ImageId": "ami-0341aeea105412b57"
+    # ap-southeast-1: 
+    #   "ImageId": "ami-08569b978cc4dfa10"
+    # ap-northeast-1: 
+    #   "ImageId": "ami-06cd52961ce9f0d85" 
+
+Outputs:
+  IPv4PrivateServer:    
+    Description: This is the custom VPC that i created for this lab requirement.
+    Value: !GetAtt  MySecureInstance.PrivateIp 
+  
+
+  DNSnameServer:    
+    Description: This is the custom VPC that i created for this lab requirement.
+    Value: !GetAtt  MySecureInstance.PrivateDnsName 
+        
+
+  
+
+
